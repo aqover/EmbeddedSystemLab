@@ -1,0 +1,27 @@
+--cpu=Cortex-M4.fp
+"lab4\stm32f4xx_hal_cortex.o"
+"lab4\stm32f4xx_hal_rcc.o"
+"lab4\stm32f4xx_hal_adc_ex.o"
+"lab4\stm32f4xx_hal_flash_ramfunc.o"
+"lab4\stm32f4xx_hal_tim_ex.o"
+"lab4\stm32f4xx_hal_flash.o"
+"lab4\stm32f4xx_hal_tim.o"
+"lab4\stm32f4xx_hal_rcc_ex.o"
+"lab4\stm32f4xx_hal_gpio.o"
+"lab4\stm32f4xx_hal_dma_ex.o"
+"lab4\stm32f4xx_hal.o"
+"lab4\stm32f4xx_hal_adc.o"
+"lab4\stm32f4xx_hal_pwr_ex.o"
+"lab4\stm32f4xx_hal_flash_ex.o"
+"lab4\stm32f4xx_hal_pwr.o"
+"lab4\stm32f4xx_hal_dma.o"
+"lab4\stm32f4xx_hal_uart.o"
+"lab4\main.o"
+"lab4\stm32f4xx_it.o"
+"lab4\stm32f4xx_hal_msp.o"
+"lab4\startup_stm32f407xx.o"
+"lab4\system_stm32f4xx.o"
+--library_type=microlib --strict --scatter "Lab4\Lab4.sct"
+--diag_suppress=L6329 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "Lab4.map" -o Lab4\Lab4.axf
