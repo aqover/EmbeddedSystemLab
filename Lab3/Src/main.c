@@ -176,6 +176,11 @@ int main(void)
 	uint32_t time_prev = HAL_GetTick();
 	uint16_t time_delay[] = {200, 1000, 5000};
 	#endif
+	
+	HAL_TIM_Base_Start(&htim1);
+	HAL_TIM_Base_Start(&htim10);
+	HAL_TIM_Base_Start(&htim11);
+	HAL_TIM_Base_Start(&htim14);
   /* USER CODE END 2 */
 
   /* Infinite loop */
