@@ -178,9 +178,9 @@ int main(void)
 	#endif
 	
 	HAL_TIM_Base_Start(&htim1);
-	HAL_TIM_Base_Start(&htim10);
-	HAL_TIM_Base_Start(&htim11);
-	HAL_TIM_Base_Start(&htim14);
+	HAL_TIM_Base_Start_IT(&htim10);
+	HAL_TIM_Base_Start_IT(&htim11);
+	HAL_TIM_Base_Start_IT(&htim14);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -362,7 +362,7 @@ static void MX_TIM1_Init(void)
   TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig;
 
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 16799;
+  htim1.Init.Prescaler = 8399;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 1000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -412,7 +412,7 @@ static void MX_TIM10_Init(void)
 {
 
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 16799;
+  htim10.Init.Prescaler = 8399;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim10.Init.Period = 5000;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -428,7 +428,7 @@ static void MX_TIM11_Init(void)
 {
 
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 16799;
+  htim11.Init.Prescaler = 8399;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim11.Init.Period = 4905;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -444,7 +444,7 @@ static void MX_TIM14_Init(void)
 {
 
   htim14.Instance = TIM14;
-  htim14.Init.Prescaler = 16799;
+  htim14.Init.Prescaler = 8399;
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim14.Init.Period = 9999;
   htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
