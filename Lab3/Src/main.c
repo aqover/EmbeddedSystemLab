@@ -52,7 +52,7 @@
 #include "usb_host.h"
 
 /* USER CODE BEGIN Includes */
-#define SECTION 1
+#define SECTION 3
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -62,9 +62,9 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
+TIM_HandleTypeDef htim13;
 TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart2;
@@ -80,16 +80,13 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2S3_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM13_Init(void);
 static void MX_NVIC_Init(void);
 void MX_USB_HOST_Process(void);
-
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -98,36 +95,50 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* USER CODE BEGIN 0 */
 #if SECTION == 1
-uint8_t led_state;
+uint8_t led_state, led_it;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == GPIO_PIN_0)
 	{
-		led_state = (led_state + 1) % 3;
+		if (!led_it)
+		{
+			led_it = 1;
+			led_state = (led_state + 1) % 3;
+		}
 	}
 }
 #elif SECTION == 3
 uint32_t led_count_red, led_count_green;
 char text[128];
+#endif
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	#if SECTION == 2
+	if (htim->Instance == TIM13)
+	{
+		//HAL_GPIO_TogglePin(GPIOD, 1 << 13);
+		HAL_GPIO_TogglePin(GPIOA, 1 << 1);
+	}
+	#elif SECTION == 3
 	if (htim->Instance == TIM10)
 	{
 		HAL_GPIO_TogglePin(GPIOD, 1 << 14);
-		led_count_red += 1;
+		if (HAL_GPIO_ReadPin(GPIOD, 1<< 14) == GPIO_PIN_SET)
+			led_count_red += 1;
 	}
 	else if (htim->Instance == TIM11)
 	{
 		HAL_GPIO_TogglePin(GPIOD, 1 << 12);
-		led_count_green += 1;
+		if (HAL_GPIO_ReadPin(GPIOD, 1<< 12) == GPIO_PIN_SET)
+			led_count_green += 1;
 	}
 	else if (htim->Instance == TIM14)
 	{
 		sprintf(text, "Red: %d, Green: %d\n", led_count_red, led_count_green);
-		HAL_UART_Transmit(&huart2, (uint8_t*)text, sizeof(text), 5000);
+		HAL_UART_Transmit(&huart2, (uint8_t*)text, sizeof(text), 1000);
 	}
+	#endif
 }
-#endif
 /* USER CODE END 0 */
 
 /**
@@ -163,11 +174,11 @@ int main(void)
   MX_I2S3_Init();
   MX_SPI1_Init();
   MX_USB_HOST_Init();
-  MX_TIM1_Init();
   MX_TIM14_Init();
   MX_TIM11_Init();
   MX_TIM10_Init();
   MX_USART2_UART_Init();
+  MX_TIM13_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -177,9 +188,9 @@ int main(void)
 	uint16_t time_delay[] = {200, 1000, 5000};
 	#endif
 	
-	HAL_TIM_Base_Start(&htim1);
 	HAL_TIM_Base_Start_IT(&htim10);
 	HAL_TIM_Base_Start_IT(&htim11);
+	HAL_TIM_Base_Start_IT(&htim13);
 	HAL_TIM_Base_Start_IT(&htim14);
   /* USER CODE END 2 */
 
@@ -188,6 +199,7 @@ int main(void)
   while (1)
   {
 		#if SECTION == 1
+		led_it = 0;
 		if ((HAL_GetTick() - time_prev) >= time_delay[led_state])
 		{
 			HAL_GPIO_TogglePin(GPIOD, 1 << 14);
@@ -284,8 +296,11 @@ static void MX_NVIC_Init(void)
   /* TIM1_TRG_COM_TIM11_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(TIM1_TRG_COM_TIM11_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM1_TRG_COM_TIM11_IRQn);
+  /* TIM8_UP_TIM13_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM8_UP_TIM13_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM8_UP_TIM13_IRQn);
   /* TIM8_TRG_COM_TIM14_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(TIM8_TRG_COM_TIM14_IRQn, 0, 1);
+  HAL_NVIC_SetPriority(TIM8_TRG_COM_TIM14_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM8_TRG_COM_TIM14_IRQn);
 }
 
@@ -353,60 +368,6 @@ static void MX_SPI1_Init(void)
 
 }
 
-/* TIM1 init function */
-static void MX_TIM1_Init(void)
-{
-
-  TIM_MasterConfigTypeDef sMasterConfig;
-  TIM_OC_InitTypeDef sConfigOC;
-  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig;
-
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 8399;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  if (HAL_TIM_OC_Init(&htim1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
-  sConfigOC.Pulse = 1000;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
-  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
-  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
-  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
-  sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
-  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
-  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
-  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  HAL_TIM_MspPostInit(&htim1);
-
-}
-
 /* TIM10 init function */
 static void MX_TIM10_Init(void)
 {
@@ -414,7 +375,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8399;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 5000;
+  htim10.Init.Period = 2500;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
   {
@@ -428,11 +389,27 @@ static void MX_TIM11_Init(void)
 {
 
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 8399;
+  htim11.Init.Prescaler = 20999;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim11.Init.Period = 4905;
+  htim11.Init.Period = 981;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* TIM13 init function */
+static void MX_TIM13_Init(void)
+{
+
+  htim13.Instance = TIM13;
+  htim13.Init.Prescaler = 83;
+  htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim13.Init.Period = 50;
+  htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -503,6 +480,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(OTG_FS_PowerSwitchOn_GPIO_Port, OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin 
                           |Audio_RST_Pin, GPIO_PIN_RESET);
 
@@ -533,6 +513,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BOOT1_Pin */
   GPIO_InitStruct.Pin = BOOT1_Pin;
