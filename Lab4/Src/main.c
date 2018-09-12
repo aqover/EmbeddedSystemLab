@@ -43,8 +43,8 @@
 /* USER CODE BEGIN Includes */
 #define SECTION 1
 
-#define MAX_LDR 0
-#define MIN_LDR 0
+#define MAX_LDR 2300
+#define MIN_LDR 900
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -98,7 +98,7 @@ void analogWrite(uint16_t pwm)
 	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
 }
 #if SECTION == 1
-uint16_t pwm_percent;
+int16_t pwm_percent;
 int8_t pwm_state;
 #endif
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -164,7 +164,7 @@ int main(void)
   while (1)
   {
 		#if SECTION == 2
-		//HAL_ADC_Start(&hadc1);
+		HAL_ADC_Start(&hadc1);
 		if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
 		{
 			char text[16];
@@ -173,11 +173,16 @@ int main(void)
 			HAL_UART_Transmit(&huart2, (uint8_t*)text, sizeof(text), 1000);
 		}
 		#elif SECTION == 3
+		HAL_ADC_Start(&hadc1);
 		if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
 		{
 			uint16_t adc = HAL_ADC_GetValue(&hadc1);
-			uint16_t percent = (1 - ((MAX_LDR - adc)/ ldr_p)) * 100;
+			uint16_t percent = (double)(1.0 - ((double)(MAX_LDR - adc)/ (double)ldr_p)) * 100.0;
 			analogWrite(percent);
+		
+			char text[32];
+			sprintf(text, "%d %d\n", adc, percent);
+			HAL_UART_Transmit(&huart2, (uint8_t*)text, sizeof(text), 1000);
 		}
 		#endif
   /* USER CODE END WHILE */
