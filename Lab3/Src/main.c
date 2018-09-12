@@ -134,7 +134,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 	else if (htim->Instance == TIM14)
 	{
-		sprintf(text, "Red: %d, Green: %d\n", led_count_red, led_count_green);
+		sprintf(text, "Red: %d, Green: %d\n\r", led_count_red, led_count_green);
 		HAL_UART_Transmit(&huart2, (uint8_t*)text, sizeof(text), 1000);
 	}
 	#endif
@@ -373,7 +373,7 @@ static void MX_TIM10_Init(void)
 {
 
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 8399;
+  htim10.Init.Prescaler = 16799;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim10.Init.Period = 2500;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -389,9 +389,9 @@ static void MX_TIM11_Init(void)
 {
 
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 20999;
+  htim11.Init.Prescaler = 4199;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim11.Init.Period = 981;
+  htim11.Init.Period = 9810;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
   {
