@@ -58,33 +58,33 @@ static void MX_TIM14_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+typedef struct{
+	GPIO_TypeDef * port;
+	uint16_t pin;
+} LED_Typedef;
+LED_Typedef all_led[] = { {LD3_GPIO_Port, LD3_Pin}, {LD4_GPIO_Port, LD4_Pin}, {LD5_GPIO_Port, LD5_Pin}, {LD6_GPIO_Port, LD6_Pin} };
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM14)
 	{
+		int i=0;
 		if (state != prev_state)
-		{
-			HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(LD5_GPIO_Port, LD5_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(LD6_GPIO_Port, LD6_Pin, GPIO_PIN_RESET);
-		}
+			for(i=0;i<4;i++)
+				HAL_GPIO_WritePin(all_led[i].port, all_led[i].pin, GPIO_PIN_RESET);
 		
 		if (state == 0)
 		{
-			HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-			HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
-			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
+			for(i=0;i<4;i++)
+				HAL_GPIO_TogglePin(all_led[i].port, all_led[i].pin);
 		}
 		else if (state == 1)
 		{
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+			HAL_GPIO_TogglePin(all_led[2].port, all_led[2].pin);
 		}
 		else if (state == 2)
 		{
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD4_Pin);
-			HAL_GPIO_TogglePin(LD6_GPIO_Port, LD6_Pin);
+			HAL_GPIO_TogglePin(all_led[1].port, all_led[1].pin);
+			HAL_GPIO_TogglePin(all_led[3].port, all_led[3].pin);
 		}
 		
 		prev_state = state;
@@ -132,9 +132,12 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-		if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+		if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
 		{
-			while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET);
+			// depluse
+			HAL_Delay(100);
+			while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
+				HAL_Delay(10);
 			state = (state + 1 ) % 3;
 		}
   /* USER CODE BEGIN 3 */
