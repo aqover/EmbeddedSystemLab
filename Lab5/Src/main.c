@@ -41,8 +41,11 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#define SECTION 3
+#define SECTION 1
 #define IS_MASTER 1
+
+#define MASTER_ADDRESS 1
+#define SALVE_ADDRESS 2
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -54,8 +57,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t buffer[16];
-uint8_t received;
+uint8_t buffer[2] = "";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,49 +80,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		#elif SECTION == 2
 			HAL_SPI_Transmit(&hspi1, &buffer[0], 1, 1000);
 		#elif SECTION == 3
-			HAL_I2C_Master_Transmit(&hi2c1, 2, &buffer[0], 1, 1000);
+			HAL_I2C_Master_Transmit(&hi2c1, SALVE_ADDRESS, &buffer[0], 1, 1000);
 		#endif
-	}
-}
-#else
-#if SECTION == 1
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	if (huart->Instance == USART2)
-	{
-		if (buffer[0] == 'a')
-		{
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
-			received = 1;
-		}
-	}
-}
-#elif SECTION == 2
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
-{
-	if (hspi->Instance == SPI1)
-	{
-		if (buffer[0] == 'a')
-		{
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
-			received = 1;
-		}
-	}
-}
-#elif SECTION == 3
-void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-	if (hi2c->Instance == I2C1)
-	{
-		if (buffer[0] == 'a')
-		{
-			HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
-			received = 1;
-		}
+		int i = 0;
+		// Debouncing
+		for(;i<16800000;i++);
 	}
 }
 #endif
-#endif
+
+void pinMode_PULLDOWN(GPIO_TypeDef * base, uint16_t pin) {
+	GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitStruct.Pin = pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+  HAL_GPIO_Init(base, &GPIO_InitStruct);
+}
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -135,7 +112,6 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	received = 1;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -164,7 +140,7 @@ int main(void)
 	#if IS_MASTER == 1
   /* SPI1 parameter configuration*/
   hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
 	#else
 	/* SPI1 parameter configuration*/
   hspi1.Init.Mode = SPI_MODE_SLAVE;
@@ -175,9 +151,11 @@ int main(void)
   }
 	#elif SECTION == 3
 	#if IS_MASTER == 1
-	hi2c1.Init.OwnAddress1 = 1;
+	hi2c1.Init.OwnAddress1 = MASTER_ADDRESS;
 	#else
-	hi2c1.Init.OwnAddress1 = 2;
+	pinMode_PULLDOWN(GPIOB, GPIO_PIN_6);
+	pinMode_PULLDOWN(GPIOB, GPIO_PIN_9);
+	hi2c1.Init.OwnAddress1 = SALVE_ADDRESS;
 	#endif	
 	if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
@@ -191,16 +169,19 @@ int main(void)
   while (1)
   {
 		#if IS_MASTER == 0
-		if (received == 1)
+		#if SECTION == 2
+		if(HAL_SPI_Receive(&hspi1, &buffer[0], 1, 1000) == HAL_OK)
+		#elif SECTION == 3
+		if (HAL_I2C_Slave_Receive(&hi2c1, &buffer[0], 1, 1000) == HAL_OK)
+		#else
+		if (HAL_UART_Receive(&huart2, &buffer[0], 1, 1000) == HAL_OK)
+		#endif
 		{
-			#if SECTION == 1
-			HAL_UART_Receive_IT(&huart2, &buffer[0], 1);
-			#elif SECTION == 2
-			HAL_SPI_Receive_IT(&hspi1, &buffer[0], 1);
-			#elif SECTION == 3
-			HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer[0], 1);
-			#endif
-			received = 0;
+			if (buffer[0] == 'a')
+			{
+				HAL_GPIO_TogglePin(LD5_GPIO_Port, LD5_Pin);
+				buffer[0] = '\n';
+			}
 		}
 		#endif
   /* USER CODE END WHILE */
