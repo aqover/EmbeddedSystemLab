@@ -85,8 +85,6 @@
 #define BOOT1_GPIO_Port GPIOB
 #define CLK_IN_Pin GPIO_PIN_10
 #define CLK_IN_GPIO_Port GPIOB
-#define LD4_Pin GPIO_PIN_12
-#define LD4_GPIO_Port GPIOD
 #define LD3_Pin GPIO_PIN_13
 #define LD3_GPIO_Port GPIOD
 #define LD5_Pin GPIO_PIN_14

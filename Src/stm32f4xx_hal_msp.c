@@ -48,6 +48,8 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+extern DMA_HandleTypeDef hdma_tim4_ch1;
+
 extern DMA_HandleTypeDef hdma_usart2_rx;
 
 extern DMA_HandleTypeDef hdma_usart2_tx;
@@ -280,9 +282,26 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef* htim_pwm)
   /* USER CODE END TIM4_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_TIM4_CLK_ENABLE();
-    /* TIM4 interrupt Init */
-    HAL_NVIC_SetPriority(TIM4_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(TIM4_IRQn);
+  
+    /* TIM4 DMA Init */
+    /* TIM4_CH1 Init */
+    hdma_tim4_ch1.Instance = DMA1_Stream0;
+    hdma_tim4_ch1.Init.Channel = DMA_CHANNEL_2;
+    hdma_tim4_ch1.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_tim4_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_tim4_ch1.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_tim4_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_tim4_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_tim4_ch1.Init.Mode = DMA_NORMAL;
+    hdma_tim4_ch1.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_tim4_ch1.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if (HAL_DMA_Init(&hdma_tim4_ch1) != HAL_OK)
+    {
+      _Error_Handler(__FILE__, __LINE__);
+    }
+
+    __HAL_LINKDMA(htim_pwm,hdma[TIM_DMA_ID_CC1],hdma_tim4_ch1);
+
   /* USER CODE BEGIN TIM4_MspInit 1 */
 
   /* USER CODE END TIM4_MspInit 1 */
@@ -301,9 +320,10 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
   /* USER CODE END TIM4_MspPostInit 0 */
   
     /**TIM4 GPIO Configuration    
+    PD12     ------> TIM4_CH1
     PD15     ------> TIM4_CH4 
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -328,8 +348,8 @@ void HAL_TIM_PWM_MspDeInit(TIM_HandleTypeDef* htim_pwm)
     /* Peripheral clock disable */
     __HAL_RCC_TIM4_CLK_DISABLE();
 
-    /* TIM4 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(TIM4_IRQn);
+    /* TIM4 DMA DeInit */
+    HAL_DMA_DeInit(htim_pwm->hdma[TIM_DMA_ID_CC1]);
   /* USER CODE BEGIN TIM4_MspDeInit 1 */
 
   /* USER CODE END TIM4_MspDeInit 1 */

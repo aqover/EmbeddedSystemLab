@@ -53,6 +53,7 @@
 
 /* USER CODE BEGIN Includes */
 #define SECTION 3
+#define buf_len 256
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -63,6 +64,7 @@ I2S_HandleTypeDef hi2s3;
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim4;
+DMA_HandleTypeDef hdma_tim4_ch1;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
@@ -72,7 +74,7 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t src[256], dst[256], ck, idx;
+uint8_t buf[2][buf_len+1], pp = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,23 +98,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance == USART2)
 	{
-		HAL_DMA_Start(hdma_memtomem_dma2_stream0, src, dst, 256);
-		HAL_UART_Receive_DMA(&huart2, src, 256);
+		pp = (pp + 1) % 2;
+		HAL_UART_Receive_DMA(&huart2, buf[pp], buf_len);
 #if SECTION == 2
-		HAL_UART_Transmit_DMA(&huart2, dst, 256);
+		huart2.gState = HAL_UART_STATE_READY;
+		HAL_UART_Transmit_DMA(&huart2, buf[(pp + 1) % 2], buf_len);
 #elif SECTION == 3
-		ck = 1; idx = 0;
+		HAL_DMA_Start_IT(&hdma_tim4_ch1, buf[(pp + 1) % 2], &huart2.Instance->DR, buf_len);
 #endif
-	}
-}
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	if (htim->Instance == TIM4)
-	{
-		if (!ck) return;
-		HAL_UART_Transmit_DMA(&huart2, &dst[idx], 1);
-		idx ++;
-		if (idx > 256) ck = 0;
 	}
 }
 #endif
@@ -161,17 +154,18 @@ int main(void)
   /* USER CODE BEGIN 2 */
 #if SECTION == 1
   int i=0;
-  for(i=0;i<255;i++)
+  for(i=0;i<buf_len;i++)
   {
-	  src[i] = ((i + 55) * 37 ) % 57;
-	  dst[i] = 0;
+	  buf[0][i] = ((i + 55) * 37 ) % 57;
+	  buf[1][i] = 0;
   }
 #elif SECTION >= 2
 //  led always blink every 200ms period
-    HAL_UART_Receive_DMA(&huart2, src, 256);
-  HAL_TIM_PWM_Start(&htim4, HAL_TIM_ACTIVE_CHANNEL_4);
+    HAL_UART_Receive_DMA(&huart2, buf[pp], buf_len);
+  	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
 #if SECTION == 3
-  HAL_TIM_Base_Start_IT(&htim4);
+  	__HAL_TIM_ENABLE_DMA(&htim4, TIM_DMA_CC1);
+  	HAL_TIM_PWM_Start_IT(&htim4, TIM_CHANNEL_1);
 #endif
 #endif
   /* USER CODE END 2 */
@@ -191,7 +185,7 @@ int main(void)
     	HAL_Delay(50);
     	while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
     		HAL_Delay(50);
-    	HAL_DMA_Start(hdma_memtomem_dma2_stream0, src, dst, 255);
+    	HAL_DMA_Start(&hdma_memtomem_dma2_stream0, buf[0], buf[1], buf_len);
     }
 #endif
   }
@@ -354,9 +348,15 @@ static void MX_TIM4_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 5000;
+  sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigOC.Pulse = 5000;
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -416,6 +416,9 @@ static void MX_DMA_Init(void)
   }
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
@@ -454,7 +457,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(OTG_FS_PowerSwitchOn_GPIO_Port, OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|Audio_RST_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, LD3_Pin|LD5_Pin|Audio_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : CS_I2C_SPI_Pin */
   GPIO_InitStruct.Pin = CS_I2C_SPI_Pin;
@@ -498,8 +501,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
   HAL_GPIO_Init(CLK_IN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD4_Pin LD3_Pin LD5_Pin Audio_RST_Pin */
-  GPIO_InitStruct.Pin = LD4_Pin|LD3_Pin|LD5_Pin|Audio_RST_Pin;
+  /*Configure GPIO pins : LD3_Pin LD5_Pin Audio_RST_Pin */
+  GPIO_InitStruct.Pin = LD3_Pin|LD5_Pin|Audio_RST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
